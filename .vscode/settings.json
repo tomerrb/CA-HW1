@@ -41,7 +41,8 @@
         "algorithm": "cpp",
         "fstream": "cpp",
         "cstdbool": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "array": "cpp"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "problems.showCurrentInStatus": true

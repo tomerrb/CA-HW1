@@ -3,6 +3,7 @@
 
 #include "bp_api.h"
 #include <stdbool.h>
+#include <array>
 
 enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
 
@@ -13,41 +14,39 @@ enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
 class history
 {
 private:
-	int* histories;
-	int histories_num;
+	int* array;
+	int history_size;
 public:
-	history(int* histories, int histories_num);
-	~history() = default;
-	const int* getHistories ();
-	void updateHistories (int* new_hist);
-	const int getNumOfHistories ();
-	void updateHistoriesNum (int new_num);
-
+	history(int history_size);
+	~history();
+	const int* getHistory ();
+	void updateHistory (bool taken);
 };
 
-history::history(int* histories, int histories_num) : histories(histories), histories_num(histories_num) // build a std::array
+history::history(int history_size)
 {
+	array = new int[history_size]();
+	for (int i = 0 ; i < history_size ; i++){
+		array[i] = 0;
+	}
+}
+history::~history()
+{
+	delete[] array;
+}
+const int* history::getHistory()
+{
+	return this->array;
+}
+void history::updateHistory (bool taken)  // update the array - shift left
+{
+	for(int i = history_size - 1 ; i > 0 ; i--){
+		array[i] = array[i-1];
+	}
+	if(taken) array[0] = 1;
+	else array[0] = 0;
 }
 
-const int* history::getHistories()
-{
-	return this->histories;
-}
-
-void history::updateHistories (int* new_hist)  // update the array - shift left
-{
-	this->histories = new_hist;
-}
-
-const int history::getNumOfHistories ()
-{
-	return this->histories_num;
-}
-
-void history::updateHistoriesNum (int new_num)
-{
-	this->histories_num = new_num;
-}
 
 /**
  * fsm class
@@ -60,14 +59,19 @@ private:
 	int fsm_num;
 
 public:
-	fsm(states* fsms, int num_of_fsm);
+	fsm(int num_of_fsm);
 	~fsm()= default;
 	const states* getFSM ();
-	void updateFSM (bool taken);
-	const int getNumOfFSM ();
+	void updateFSM (int fsm_num, bool taken);
 };
 
-fsm::fsm(states* fsms, int num_of_fsm) : FSMs(fsms), fsm_num(num_of_fsm){} // initial array to WNT in each cell
+fsm::fsm(int num_of_fsm): fsm_num(num_of_fsm)
+{
+	FSMs = new states[fsm_num]();
+	for (int i = 0 ; i < fsm_num ; i++){
+		FSMs[i] = WNT;
+	}
+}
 
 const states* fsm::getFSM()
 {
@@ -98,16 +102,6 @@ void fsm::updateFSM(int fsm_num, bool taken)
 	}
 }
 
-const int fsm::getNumOfFSM()
-{
-	return this->fsm_num;
-}
-
-void fsm::updateFSMNum(int new_num)
-{
-	this->fsm_num = new_num;
-}
-
 
 /**
  * branch class
@@ -125,7 +119,6 @@ public:
 	branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bool isGlobalHist, bool isGlobalFSM, int shared);
 	~branch() = default;
 	const uint32_t getBranchPC ();
-	void updateBranchPC (const uint32_t new_PC);
 	const uint32_t getTargetPC ();
 	void updateTargetPC (const uint32_t new_PC);
 	const history* getHistory ();
@@ -160,11 +153,6 @@ branch::branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bo
 const uint32_t branch::getBranchPC()
 {
 	return this->branchPC;
-}
-
-void branch::updateBranchPC(const uint32_t new_PC)
-{
-	this->branchPC = new_PC;
 }
 
 const uint32_t branch::getTargetPC()
@@ -299,7 +287,7 @@ private:
 	SIM_stats bp_stats;
 
 public:
-	bp(btb* BTB, unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared);
+	bp(btb *BTB, unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared);
 	~bp() = default;
 	friend int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
 			bool isGlobalHist, bool isGlobalTable, int Shared);
@@ -308,6 +296,7 @@ public:
 	friend void BP_GetStats(SIM_stats *curStats);
 	int calculateMemorySize();
 	void statsUpdate(bool taken);
+	int calculteFsmPtr()
 };
 
 bp::bp(btb* BTB, unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared):
