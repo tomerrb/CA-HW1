@@ -33,6 +33,7 @@ public:
 	//history& operator=(const &history) = default;
 	const int* getHistory ();
 	void updateHistory (bool taken);
+	const int historyArrToNum();
 };
 
 history::history(int history_size)
@@ -59,6 +60,21 @@ void history::updateHistory (bool taken)  // update the array - shift left
 	else array[0] = 0;
 }
 
+const int history::historyArrToNum()
+{
+	int historyAsNumber = 0;
+	for (int i = 0; i < history_size; i++)
+	{
+		if (array[i])
+		{
+			historyAsNumber += pow(2,i);
+		}
+	}
+	return historyAsNumber;
+	
+}
+
+//opertor=
 
 /**
  * fsm class
@@ -216,6 +232,9 @@ public:
 	bool nextPred(uint32_t pc);
 	int calculateMemorySize(); 
 	void statsUpdate(bool taken);
+	int calculteFsmPtr(uint32_t pc);
+
+	friend int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
 	int calculteFsmPtr();
 	branch* createNewBranch(unsigned branchPC, unsigned targetPC, int taken);
 	int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
@@ -225,6 +244,35 @@ public:
 	void BP_GetStats(SIM_stats *curStats);
 
 };
+
+int calculteFsmPtr(uint32_t pc)
+{
+	int FsmRow = 0;
+	uint32_t pc_in_list = this->btb_list[hash_func(this->btbSize, pc)].getBranchPC();
+	int hist = this->btb_list[hash_func(this->btbSize, pc)].History.historyArrToNum();
+	if (this->shared == 1)
+	{
+		int pcLSB = pc >> 2;
+		int pcLSB = pcLSB & (pow(2, this->historySize) - 1);
+		FsmRow = hist ^ pcLSB;
+	}
+	if (this->shared == 2)
+	{
+		int pcMB = pc >> 16;
+		int pcMB = pcMB & (pow(2, this->historySize) - 1);
+		FsmRow = hist ^ pcMB;
+	}
+	if (this->shared == 0)
+	{
+		FsmRow = hist;
+		for (int i = 0; i < this->tagSize; i++)
+		{
+			FsmRow += pow(2,(pc_in_list >> (this->tagSize - i)));
+		}
+		
+	}
+	return FsmRow;
+}
 
 bool IsdataValid(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState)
 	{
@@ -250,7 +298,7 @@ bp::bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMSta
 
 int hash_func(unsigned btbSize, uint32_t pc){
 	uint32_t temp = pc<<2;
-	int index = int(pow(2, log2(btbSize))) && temp;
+	int index = int(pow(2, log2(btbSize))) & temp;
 	return index;
 }
 
@@ -329,7 +377,18 @@ int bp::BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsign
 }
 
 bool BP_predict(uint32_t pc, uint32_t *dst){
-	return false;
+	if (!btb_list[hash_func(btbSize, pc)]) // pc is not branch operation
+	{
+		dst = pc + 4;
+		return false
+	}
+	if (btb_list[hash_func(btbSize, pc)].FSM[calculteFsmPtr(pc)] == (SNT || WNT))
+	{
+		dst = pc + 4;
+		return false;
+	}
+	dst = btb_list[hash_func(btbSize, pc)].getTargetPC();
+	return true;
 }
 
 void bp::BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
