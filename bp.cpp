@@ -3,11 +3,11 @@
 
 #include "bp_api.h"
 #include <stdbool.h>
-#include <array>
-using std::shared_ptr
-#include <vector>
 #include <iostream>
-#include <numeric>
+#include <vector>
+#include <memory>
+#include <iostream>
+#include <cmath>
 #include <string>
 #include <list>
 
@@ -53,6 +53,7 @@ void history::updateHistory (bool taken)  // update the array - shift left
 	else array[0] = 0;
 }
 
+//opertor=
 
 /**
  * fsm class
@@ -123,54 +124,31 @@ class branch
 private:
 	uint32_t branchPC;
 	uint32_t targetPC;
-	history History;
-	fsm FSM;
+	std::shared_ptr<history> History;
+	std::shared_ptr<fsm> FSM;
 
 public:
-	branch(uint32_t branchPC, uint32_t targetPC, shared_ptr<history> hist, shared_ptr<fsm> fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits);
+	branch(uint32_t branchPC, uint32_t targetPC, std::shared_ptr<history> hist, std::shared_ptr<fsm> fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits);
 	~branch() = default;
 	const uint32_t getBranchPC ();
 	const uint32_t getTargetPC ();
 	void updateTargetPC (const uint32_t new_PC);
-	const history getHistory ();
+	const std::shared_ptr<history> getHistory ();
 	void updateHistory (bool taken);
-	const fsm getFSM ();
-	void updateFSM(bool taken);
+	const std::shared_ptr<fsm> getFSM ();
+	void updateFSM(int fsm_num, bool taken);
 };
 
-branch::branch(uint32_t branchPC, uint32_t targetPC, shared_ptr<history> hist, shared_ptr<fsm> fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits): branchPC(branchPC), targetPC(targetPC)
+branch::branch(uint32_t branchPC, uint32_t targetPC, std::shared_ptr<history> hist, std::shared_ptr<fsm> Fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits): branchPC(branchPC), targetPC(targetPC)
 {
-	if (!isGlobalHist || hist == nullptr)
-	{
-		history h =new history(numOfHistBits);
-		if (isGlobalHist)
-		{
-			History = make_shared<history>(h);
-		}
-		else {
-			History = h;
-		}
+	if (!isGlobalHist || hist == nullptr){
+		History = std::make_shared<history>(new history(numOfHistBits));
 	}
-	else
-	{
-		History = hist;
+	else History = hist;
+	if (!isGlobalFSM || Fsm == nullptr){
+		FSM = std::make_shared<fsm>(new fsm(numOfFSMBits)); 
 	}
-	if (!isGlobalFSM || fsm == nullptr)
-	{
-		fsm f = new fsm(numOfFSMBits);
-		if (isGlobalFSM)
-		{
-			FSM = make_shared<fsm>(f);
-		}
-		else
-		{
-			FSM = f;
-		}
-	}
-	else
-	{
-		FSM = fsm;
-	}
+	else FSM = Fsm;
 } 
 
 const uint32_t branch::getBranchPC()
@@ -188,24 +166,24 @@ void branch::updateTargetPC(const uint32_t new_PC)
 	this->targetPC = new_PC;
 }
 
-const history branch::getHistory()
+const std::shared_ptr<history> branch::getHistory()
 {
-	return this->History;
+	return History;
 }
 
 void branch::updateHistory(bool taken)
 {
-	this->History.updateHistories(taken);
+	History->updateHistory(taken);
 }
 
-const fsm branch::getFSM()
+const std::shared_ptr<fsm> branch::getFSM()
 {
 	return this->FSM;
 }
 
-void branch::updateFSM(bool taken)
+void branch::updateFSM(int fsm_num, bool taken)
 {
-	FSM.updateFSM(taken);
+	FSM->updateFSM(fsm_num, taken);
 }
 
 /*
@@ -263,18 +241,28 @@ bp::bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMSta
 			btb_list = std::vector<branch>(btbSize);
 		}
 
-void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
-{
-	branch iterator = btb_list.begin;
-	std::for_each(btb_list.begin, btb_list.end, [](branch &iterator){
-		if (iterator.getBranchPC() == pc)		{
-			iterator.updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
-			iterator.updateFSM(taken); //* update the state machine of the existing pc branch
-			return;
-		}
-	})
-	btb_list.push_back(branch(pc, targetPc));
+int hash_func(unsigned btbSize, uint32_t pc){
+	uint32_t temp = pc<<2;
+	int index = int(pow(2, log2(btbSize))) && temp;
+	return index;
 }
+
+int getTagBits(unsigned btbSize, uint32_t pc){
+	uint32_t tag = pc<<int(2 + log2(btbSize));
+	return tag;
+}
+
+void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken) // hash function that uses the tag 
+// get_bits(log(btbSize), iterator.getBranchPC() == get_bits(log(btbSize), pc)
+{
+	uint32_t pc_in_list =  btb_list[hash_func(btbSize, pc)].getBranchPC();
+	if(getTagBits(btbSize, pc_in_list) == getTagBits(btbSize, pc)){
+		btb_list[pc_in_list].updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
+		btb_list[pc_in_list].updateFSM(calculteFsmPtr(), taken); //* update the state machine of the existing pc branch
+	}
+	else btb_list.insert(new branch(pc, targetPc));
+}
+
 
 bool bp::nextPred(uint32_t pc)
 {
