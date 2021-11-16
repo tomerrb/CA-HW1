@@ -207,7 +207,7 @@ public:
 	~bp() = default;
 	void addNewBranch(uint32_t pc, uint32_t targetPc, bool taken);
 	bool nextPred(uint32_t pc);
-	int calculateMemorySize();
+	int calculateMemorySize(); 
 	void statsUpdate(bool taken);
 	int calculteFsmPtr();
 
@@ -281,10 +281,10 @@ void bp::statsUpdate(bool taken)
 {
 	if(!taken)
 	{
-		bp_stats.flush_num += 3; //* update flush number only if necessary *//
+		bp_stats.flush_num ++; //* update flush number only if necessary *//
 	}
 	bp_stats.br_num++;
-	bp_stats.size = some number we need to update....;
+	bp_stats.size = calculateMemorySize();
 }
 
 /**
@@ -313,17 +313,17 @@ bool BP_predict(uint32_t pc, uint32_t *dst){
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
 	if(this->btb->nextPred(pc)){  // check if the pc state machine shows to take the prediction or not
 		this->btb->addNewBranch(pc, pred_dst, taken); // add new noot to thr btb - add the pred_dst because the prediction is taken
-		this->statsUpdate(false); // change the SIM_stats saved in the predictor - add 1 to br_num, "false" = don't add any flush_num
+		this->statsUpdate(taken == this->btb->nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "false" = don't add any flush_num
 	}
 	else{
 		this->btb->addNewBranch(pc, targetPc, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
-		this->statsUpdate(true); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
+		this->statsUpdate(taken == this->btb->nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
 	}
 	return;
 }
 
 void BP_GetStats(SIM_stats *curStats){
-	curStats->br_num = this->btb->getBTBNum();
+	curStats->br_num = this->bp.btb.len();
 	curStats->flush_num = this->getFlushNum();
 	curStats->size = this->calculateMemorySize();
 	delete(something!!!!!!!!!);
