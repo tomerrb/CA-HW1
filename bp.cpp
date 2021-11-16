@@ -122,7 +122,7 @@ private:
 	fsm* FSM;
 
 public:
-	branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm);
+	branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bool isGlobalHist, bool isGlobalFSM, int shared);
 	~branch() = default;
 	const uint32_t getBranchPC ();
 	void updateBranchPC (const uint32_t new_PC);
@@ -136,14 +136,26 @@ public:
 	void updateFSM(bool taken);
 };
 
-branch::branch(uint32_t branchPC, uint32_t targetPC, history* hist, bool pred,  fsm* fsm)
+branch::branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits): branchPC(branchPC), targetPC(targetPC)
 {
-
+	if (!isGlobalHist)
+	{
+		History = new history(numOfHistBits);
+	}
+	else
+	{
+		History = hist;
+	}
+	if (!isGlobalFSM)
+	{
+		FSM = new fsm(numOfFSMBits);
+	}
+	else
+	{
+		FSM = fsm;
+	}
 } 
-: branchPC(branchPC),
-				targetPC(targetPC), History(hist), prediction(pred), FSM(fsm) //* update the ctor to two possiblities - global FSM and private
-{
-}
+
 
 const uint32_t branch::getBranchPC()
 {
