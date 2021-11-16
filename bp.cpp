@@ -3,7 +3,6 @@
 
 #include "bp_api.h"
 #include <stdbool.h>
-#include <array>
 using std::shared_ptr
 #include <vector>
 #include <iostream>
