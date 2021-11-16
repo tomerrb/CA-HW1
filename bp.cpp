@@ -13,6 +13,7 @@
 
 #define SIZE_OF_BYTE 8
 #define SIZE_OF_INT 32
+#define VALID_BIT 1
 
 enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
 
@@ -296,7 +297,7 @@ int bp::calculateMemorySize()
 	int hist_size = historySize;
 	if(!isGlobalTable) fsm_size = fsm_size * btbSize;
 	if(!isGlobalHist) hist_size = hist_size * historySize;
-	return SIZE_OF_BYTE * (hist_size + fsm_size + SIZE_OF_INT + SIZE_OF_INT);
+	return SIZE_OF_BYTE * (hist_size + fsm_size + SIZE_OF_INT + SIZE_OF_INT) + VALID_BIT;
 }
 
 void bp::statsUpdate(bool taken)
