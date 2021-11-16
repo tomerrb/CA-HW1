@@ -3,7 +3,11 @@
 
 #include "bp_api.h"
 #include <stdbool.h>
-#include <array>
+#include <vector>
+#include <iostream>
+#include <numeric>
+#include <string>
+#include <list>
 
 enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
 
@@ -60,7 +64,7 @@ private:
 
 public:
 	fsm(int num_of_fsm);
-	~fsm()= default;
+	~fsm();
 	const states* getFSM ();
 	void updateFSM (int fsm_num, bool taken);
 };
@@ -71,6 +75,11 @@ fsm::fsm(int num_of_fsm): fsm_num(num_of_fsm)
 	for (int i = 0 ; i < fsm_num ; i++){
 		FSMs[i] = WNT;
 	}
+}
+
+fsm::~fsm()
+{
+	delete[] FSMs;
 }
 
 const states* fsm::getFSM()
@@ -116,12 +125,12 @@ private:
 	fsm* FSM;
 
 public:
-	branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bool isGlobalHist, bool isGlobalFSM, int shared);
+	branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits);
 	~branch() = default;
 	const uint32_t getBranchPC ();
 	const uint32_t getTargetPC ();
 	void updateTargetPC (const uint32_t new_PC);
-	const history* getHistory ();
+	const history* getHistory();
 	void updateHistory (history* new_history);
 	const bool getPred ();
 	void updatePred (const bool new_pred);
@@ -148,7 +157,6 @@ branch::branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bo
 		FSM = fsm;
 	}
 } 
-
 
 const uint32_t branch::getBranchPC()
 {
@@ -195,88 +203,13 @@ void branch::updateFSM(bool taken)
 	FSM->updateFSM(taken);
 }
 
-
-/**
- * btb class
- * 
- **/
-class btb
-{
-private:
-	branch* branch_arr; // update to build a list
-	unsigned int branches_Num;
-public:
-	btb(branch* b, int branch_num); // add global/local + shared
-	~btb() = default;
-	const branch* getBranches();
-	void updateBranch(branch* new_branch_arr);
-	const int getBranchesNum();
-	void updateBranchesNum(const int new_num);
-	void addNewBranch(uint32_t pc, uint32_t targetPc, bool taken);
-	bool nextPred(uint32_t pc);
-
-};
-
-btb::btb(branch* b, int branch_num): branch_arr(b), branches_Num(branch_num){} // update to build a list
-
-const branch* btb::getBranches()
-{
-	return this->branch_arr;
-}
-
-void btb::updateBranch(branch* new_branch_arr)
-{
-	this->branch_arr = new_branch_arr; 
-}
-
-const int btb::getBranchesNum()
-{
-	return this->branches_Num;
-}
-
-void btb::updateBranchesNum(const int new_num)
-{
-	this->branches_Num = new_num;
-}
-
-void btb::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
-{
-	for(int i = 0 ; i < branches_Num ; i++)
-	{
-		if (branch_arr[i].branchPc == pc)
-		{
-			branch_arr[i].targetPC = targetPc; //****************not sure!!!! update the old targetPc to the new one? 
-			branch_arr[i].updateFSM(taken); //* update the state machine of the existing pc branch
-		}
-	}
-	if(not enough space in the array) allocate more;
-	branch_arr[branches_Num] = new branch(pc, targetPc);
-	branches_Num++;
-
-}
-
-bool btb::nextPred(uint32_t pc)
-{
-	for (int i = 0 ; i < branches_Num ; i++)
-	{
-		if (branch_arr[i].branchPc == pc)
-		{
-			if(branch_arr[i].FSM.fsm_state == SNT || branch_arr[i].FSM.fsm_state == WNT) return false;
-			else return true;
-		}
-	}
-	return false;
-}
-
-
-/**
- * bp class
- * 
- **/
+/*
+ Branch prediction class
+ */
 class bp
 {
 private:
-	btb* btb;
+	std::vector<branch> btb_list;
 	unsigned btbSize;
 	unsigned historySize;
 	unsigned tagSize;
@@ -287,21 +220,21 @@ private:
 	SIM_stats bp_stats;
 
 public:
-	bp(btb *BTB, unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared);
+	bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared);
 	~bp() = default;
+	void addNewBranch(uint32_t pc, uint32_t targetPc, bool taken);
+	bool nextPred(uint32_t pc);
+	int calculateMemorySize();
+	void statsUpdate(bool taken);
+	int calculteFsmPtr();
+
 	friend int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState,
 			bool isGlobalHist, bool isGlobalTable, int Shared);
 	friend bool BP_predict(uint32_t pc, uint32_t *dst);
 	friend void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst);
 	friend void BP_GetStats(SIM_stats *curStats);
-	int calculateMemorySize();
-	void statsUpdate(bool taken);
-	int calculteFsmPtr()
-};
 
-bp::bp(btb* BTB, unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared):
-		btb(BTB), btbSize(btbSize), historySize(historySize), tagSize(tagSize), fsmState(FSMState),
-		isGlobalHist(isGlobalHist), isGlobalTable(isGlobalTable), shared(shared){}
+};
 
 bool IsdataValid(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState)
 	{
@@ -319,6 +252,37 @@ bool IsdataValid(unsigned btbSize, unsigned historySize, unsigned tagSize, unsig
 		return false;
 	}
 
+bp::bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared):
+		btbSize(btbSize), historySize(historySize), tagSize(tagSize), fsmState(FSMState),
+		isGlobalHist(isGlobalHist), isGlobalTable(isGlobalTable), Shared(shared){
+			btb_list = std::vector<branch>(btbSize);
+		}
+
+void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
+{
+	branch iterator = btb_list.begin;
+	std::for_each(btb_list.begin, btb_list.end, [](branch &iterator){
+		if (iterator.getBranchPC() == pc)		{
+			iterator.updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
+			iterator.updateFSM(taken); //* update the state machine of the existing pc branch
+			return;
+		}
+	})
+	btb_list.push_back(branch(pc, targetPc));
+}
+
+bool bp::nextPred(uint32_t pc)
+{
+	for (int i = 0 ; i < btb_size ; i++)
+	{
+		if (btb_list[i].branchPc == pc)
+		{
+			if(btb_list[i].FSM.fsm_state == SNT || btb_list[i].FSM.fsm_state == WNT) return false;
+			else return true;
+		}
+	}
+	return false;
+}
 
 void bp::statsUpdate(bool taken)
 {
@@ -366,7 +330,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst){
 }
 
 void BP_GetStats(SIM_stats *curStats){
-	curStats->br_num = this->btb->getBranchesNum();
+	curStats->br_num = this->btb->getBTBNum();
 	curStats->flush_num = this->getFlushNum();
 	curStats->size = this->calculateMemorySize();
 	delete(something!!!!!!!!!);
