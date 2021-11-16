@@ -3,6 +3,7 @@
 
 #include "bp_api.h"
 #include <stdbool.h>
+using std::shared_ptr
 
 enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
 
@@ -118,37 +119,50 @@ class branch
 private:
 	uint32_t branchPC;
 	uint32_t targetPC;
-	history* History;
-	fsm* FSM;
+	history History;
+	fsm FSM;
 
 public:
-	branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bool isGlobalHist, bool isGlobalFSM, int shared);
+	branch(uint32_t branchPC, uint32_t targetPC, shared_ptr<history> hist, shared_ptr<fsm> fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits);
 	~branch() = default;
 	const uint32_t getBranchPC ();
 	void updateBranchPC (const uint32_t new_PC);
 	const uint32_t getTargetPC ();
 	void updateTargetPC (const uint32_t new_PC);
-	const history* getHistory ();
-	void updateHistory (history* new_history);
-	const bool getPred ();
-	void updatePred (const bool new_pred);
-	const fsm* getFSM ();
+	const history getHistory ();
+	void updateHistory (bool taken);
+	const fsm getFSM ();
 	void updateFSM(bool taken);
 };
 
-branch::branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits): branchPC(branchPC), targetPC(targetPC)
+branch::branch(uint32_t branchPC, uint32_t targetPC, shared_ptr<history> hist, shared_ptr<fsm> fsm, bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits): branchPC(branchPC), targetPC(targetPC)
 {
-	if (!isGlobalHist)
+	if (!isGlobalHist || hist == nullptr)
 	{
-		History = new history(numOfHistBits);
+		history h =new history(numOfHistBits);
+		if (isGlobalHist)
+		{
+			History = make_shared<history>(h);
+		}
+		else {
+			History = h;
+		}
 	}
 	else
 	{
 		History = hist;
 	}
-	if (!isGlobalFSM)
+	if (!isGlobalFSM || fsm == nullptr)
 	{
-		FSM = new fsm(numOfFSMBits);
+		fsm f = new fsm(numOfFSMBits);
+		if (isGlobalFSM)
+		{
+			FSM = make_shared<fsm>(f);
+		}
+		else
+		{
+			FSM = f;
+		}
 	}
 	else
 	{
@@ -177,34 +191,24 @@ void branch::updateTargetPC(const uint32_t new_PC)
 	this->targetPC = new_PC;
 }
 
-const history* branch::getHistory()
+const history branch::getHistory()
 {
 	return this->History;
 }
 
-void branch::updateHistory(history* new_history)
+void branch::updateHistory(bool taken)
 {
-	this->History = new_history;
+	this->History.updateHistories(taken);
 }
 
-const bool branch::getPred()
-{
-	return this->prediction;
-}
-
-void branch::updatePred(const bool new_pred)
-{
-	this->prediction = new_pred;
-}
-
-const fsm* branch::getFSM()
+const fsm branch::getFSM()
 {
 	return this->FSM;
 }
 
 void branch::updateFSM(bool taken)
 {
-	FSM->updateFSM(taken);
+	FSM.updateFSM(taken);
 }
 
 
