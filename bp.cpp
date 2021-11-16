@@ -25,7 +25,7 @@ public:
 
 };
 
-history::history(int* histories, int histories_num) : histories(histories), histories_num(histories_num)
+history::history(int* histories, int histories_num) : histories(histories), histories_num(histories_num) // build a std::array
 {
 }
 
@@ -34,7 +34,7 @@ const int* history::getHistories()
 	return this->histories;
 }
 
-void history::updateHistories (int* new_hist)
+void history::updateHistories (int* new_hist)  // update the array - shift left
 {
 	this->histories = new_hist;
 }
@@ -58,44 +58,43 @@ class fsm
 private:
 	states* FSMs;
 	int fsm_num;
-	states fsm_state;
 
 public:
-	fsm(states* fsms, int num_of_fsm, states initial_state);
+	fsm(states* fsms, int num_of_fsm);
 	~fsm()= default;
 	const states* getFSM ();
 	void updateFSM (bool taken);
 	const int getNumOfFSM ();
 };
 
-fsm::fsm(states* fsms, int num_of_fsm) : FSMs(fsms), fsm_num(num_of_fsm), initial_state(WNT){}
+fsm::fsm(states* fsms, int num_of_fsm) : FSMs(fsms), fsm_num(num_of_fsm){} // initial array to WNT in each cell
 
 const states* fsm::getFSM()
 {
 	return this->FSMs;
 }
 
-void fsm::updateFSM(bool taken)
+void fsm::updateFSM(int fsm_num, bool taken)
 {
-	if(fsm_state == SNT)
+	if(FSMs[fsm_num] == SNT)
 	{
-		if(taken) fsm_state = WNT;
+		if(taken) FSMs[fsm_num] = WNT;
 	}
-	if (fsm_state == WNT)
+	if (FSMs[fsm_num] == WNT)
 	{
-		if(taken) fsm_state = WT;
-		else fsm_state = SNT;
-	}
-	
-	if (fsm_state == WT)
-	{
-		if(taken) fsm_state = ST;
-		else fsm_state = WNT;
+		if(taken) FSMs[fsm_num] = WT;
+		else FSMs[fsm_num] = SNT;
 	}
 	
-	if (fsm_state == ST)
+	if (FSMs[fsm_num] == WT)
 	{
-		if(!taken) fsm_state = WT;
+		if(taken) FSMs[fsm_num] = ST;
+		else FSMs[fsm_num] = WNT;
+	}
+	
+	if (FSMs[fsm_num] == ST)
+	{
+		if(!taken) FSMs[fsm_num] = WT;
 	}
 }
 
@@ -120,11 +119,10 @@ private:
 	uint32_t branchPC;
 	uint32_t targetPC;
 	history* History;
-	bool prediction;
 	fsm* FSM;
 
 public:
-	branch(uint32_t branchPC, uint32_t targetPC, history* hist, bool pred, fsm* fsm);
+	branch(uint32_t branchPC, uint32_t targetPC, history* hist, fsm* fsm);
 	~branch() = default;
 	const uint32_t getBranchPC ();
 	void updateBranchPC (const uint32_t new_PC);
@@ -138,8 +136,12 @@ public:
 	void updateFSM(bool taken);
 };
 
-branch::branch(uint32_t branchPC, uint32_t targetPC, history* hist, bool pred,  fsm* fsm) : branchPC(branchPC),
-				targetPC(targetPC), History(hist), prediction(pred), FSM(fsm)
+branch::branch(uint32_t branchPC, uint32_t targetPC, history* hist, bool pred,  fsm* fsm)
+{
+
+} 
+: branchPC(branchPC),
+				targetPC(targetPC), History(hist), prediction(pred), FSM(fsm) //* update the ctor to two possiblities - global FSM and private
 {
 }
 
@@ -194,7 +196,6 @@ void branch::updateFSM(bool taken)
 }
 
 
-
 /**
  * btb class
  * 
@@ -202,10 +203,10 @@ void branch::updateFSM(bool taken)
 class btb
 {
 private:
-	branch* branch_arr;
+	branch* branch_arr; // update to build a list
 	unsigned int branches_Num;
 public:
-	btb(branch* b, int branch_num);
+	btb(branch* b, int branch_num); // add global/local + shared
 	~btb() = default;
 	const branch* getBranches();
 	void updateBranch(branch* new_branch_arr);
@@ -216,7 +217,7 @@ public:
 
 };
 
-btb::btb(branch* b, int branch_num): branch_arr(b), branches_Num(branch_num){}
+btb::btb(branch* b, int branch_num): branch_arr(b), branches_Num(branch_num){} // update to build a list
 
 const branch* btb::getBranches()
 {

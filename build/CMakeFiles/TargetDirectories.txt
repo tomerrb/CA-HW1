@@ -1,0 +1,5 @@
+D:/Limud/Third_year/Computer_structure/HW1/CA-HW1/build/CMakeFiles/main_bp.dir
+D:/Limud/Third_year/Computer_structure/HW1/CA-HW1/build/CMakeFiles/package.dir
+D:/Limud/Third_year/Computer_structure/HW1/CA-HW1/build/CMakeFiles/package_source.dir
+D:/Limud/Third_year/Computer_structure/HW1/CA-HW1/build/CMakeFiles/edit_cache.dir
+D:/Limud/Third_year/Computer_structure/HW1/CA-HW1/build/CMakeFiles/rebuild_cache.dir
