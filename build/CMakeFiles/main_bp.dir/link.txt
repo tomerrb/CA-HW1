@@ -1,3 +1,0 @@
-"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E rm -f CMakeFiles\main_bp.dir/objects.a
-C:\TDM-GCC-64\bin\ar.exe qc CMakeFiles\main_bp.dir/objects.a @CMakeFiles\main_bp.dir\objects1.rsp
-g++ -std=c++11  -g -Wl,--whole-archive CMakeFiles\main_bp.dir/objects.a -Wl,--no-whole-archive -o main_bp.exe -Wl,--out-implib,libmain_bp.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\main_bp.dir\linklibs.rsp
