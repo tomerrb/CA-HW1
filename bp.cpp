@@ -396,10 +396,10 @@ bool bp::nextPred(uint32_t pc)
 
 int bp::calculateMemorySize()
 {
-	if(!Shared) return (history_size + fsm_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
-	else if(isGlobalTable && isGlobalHist) return 2 + SIZE_OF_TARGET_PC + history_size + fsm_size + tagSize * btb_list.size();
-	else if(isGlobalHist) return fsm_size + (history_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
-	else return history_size + (fsm_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
+	if(Shared && isGlobalHist || isGlobalHist && isGlobalTable) return history_size + fsm_size + (VALID_BIT + tagSize + SIZE_OF_TARGET_PC) * btb_list.size();
+	else if(Shared || isGlobalTable) return fsm_size + (history_size + VALID_BIT + tagSize + SIZE_OF_TARGET_PC) * btb_list.size();
+	else if(isGlobalHist) return history_size + (fsm_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
+	else return (history_size + fsm_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
 }
 
 void bp::statsUpdate(bool taken)
@@ -411,15 +411,15 @@ void bp::statsUpdate(bool taken)
 	bp_stats.size = calculateMemorySize();
 }
 
-int calcuteFsmNum(unsigned historySize, unsigned tagSize, int shared){
-	if(!shared) return int(pow(2,historySize));
-	else return int(pow(2,historySize + tagSize));
+int calcuteFsmNum(unsigned historySize, unsigned tagSize, bool isGlobalHist, bool isGlobalTable, int shared){
+	if(isGlobalTable && !shared) return int(pow(2,historySize + tagSize));
+	else return int(pow(2,historySize + 1));
 }
 
 void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared)
 {
 	history_size = historySize;
-	fsm_size = calcuteFsmNum(historySize , tagSize, shared);
+	fsm_size = calcuteFsmNum(historySize , tagSize, isGlobalHist, isGlobalTable, shared);
 	this->btbSize = btbSize;
 	this->historySize = historySize;
 	this->tagSize = tagSize;
@@ -465,12 +465,12 @@ bool BP_predict(uint32_t pc, uint32_t *dst)
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst)
 {
 	if(main_bp.nextPred(pc)){  // check if the pc state machine shows to take the prediction or not
-		main_bp.addNewBranch(pc, targetPc, taken); // add new noot to the btb - add the pred_dst because the prediction is taken
 		main_bp.statsUpdate(taken == main_bp.nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "false" = don't add any flush_num
+		main_bp.addNewBranch(pc, targetPc, taken); // add new noot to the btb - add the pred_dst because the prediction is taken
 	}
 	else{
-		main_bp.addNewBranch(pc, pred_dst, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
 		main_bp.statsUpdate(taken == main_bp.nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
+		main_bp.addNewBranch(pc, pred_dst, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
 		return;
 	}
 	return;
