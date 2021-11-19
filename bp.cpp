@@ -155,6 +155,7 @@ private:
 public:
 	branch(uint32_t branchPC, uint32_t targetPC, std::shared_ptr<history> hist, std::shared_ptr<fsm> fsm, 
 		   bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits, unsigned initial_state);
+	branch(const branch& to_copy);
 	~branch() = default;
 	const uint32_t getBranchPC ();
 	const uint32_t getTargetPC ();
@@ -177,7 +178,9 @@ branch::branch(uint32_t branchPC = 0, uint32_t targetPC = 0, std::shared_ptr<his
 		FSM = std::make_shared<fsm>(fsm(numOfFSMBits, initial_state)); 
 	}
 	else FSM = Fsm;
-} 
+}
+
+branch::branch(const branch& to_copy): branchPC(to_copy.branchPC), targetPC(to_copy.targetPC), History(to_copy.History), FSM(to_copy.FSM){}
 
 const uint32_t branch::getBranchPC()
 {
