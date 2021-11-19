@@ -162,6 +162,7 @@ public:
 	void updateHistory (bool taken);
 	const std::shared_ptr<fsm> getFSM ();
 	void updateFSM(int fsm_num, bool taken);
+	branch& operator=(const branch& to_copy);
 };
 
 branch::branch(uint32_t branchPC, uint32_t targetPC, std::shared_ptr<history> hist, std::shared_ptr<fsm> Fsm,
@@ -211,6 +212,18 @@ void branch::updateFSM(int fsm_num, bool taken)
 {
 	FSM->updateFSM(fsm_num, taken);
 }
+branch& branch::operator=(const branch& to_copy)
+{
+	if (this == &to_copy)
+	{
+		return *this;
+	}
+	this->branchPC = to_copy.branchPC;
+	this->targetPC = to_copy.targetPC;
+	this->History = to_copy.History;
+	this->FSM = to_copy.FSM;
+	return *this;
+}
 
 /*
  Branch prediction class
@@ -246,7 +259,7 @@ public:
 };
 
 int hash_func(unsigned btbSize, uint32_t pc){
-	uint32_t temp = pc<<2;
+	uint32_t temp = pc>>2;
 	int index = int(pow(2, log2(btbSize))) & temp;
 	return index;
 }
@@ -376,7 +389,7 @@ bp* main_bp = new bp(0,0,0,0,false,false,0); //Global branch predictor
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState, bool isGlobalHist, bool isGlobalTable, int Shared)
 {
-	if(IsdataValid(btbSize, historySize, tagSize, fsmState)) return -1;
+	if(!IsdataValid(btbSize, historySize, tagSize, fsmState)) return -1;
 	main_bp->BP_init_update(btbSize, historySize, tagSize, fsmState, isGlobalTable, isGlobalHist, Shared);
 	return 0;
 }
