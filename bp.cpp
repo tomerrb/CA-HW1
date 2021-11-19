@@ -304,7 +304,7 @@ public:
 
 int hash_func(unsigned btbSize, uint32_t pc){
 	uint32_t temp = pc>>2;
-	int index = int(pow(2, log2(btbSize))) & temp;
+	int index = int(pow(2, log2(btbSize) - 1)) & temp;
 	return index;
 }
 
@@ -327,15 +327,8 @@ int bp::calculteFsmPtr(uint32_t pc)
 	}
 	if (this->Shared == 0)
 	{
-		FsmRow = 0;
-		int i = 0;
-		while(pc_in_list)
-		{
-			i++;
-			FsmRow += int(pow(2,i))*(pc_in_list % 2);
-			pc_in_list = pc_in_list >> 1;
-		}
-		FsmRow += hist << i;
+		pc_in_list = pc_in_list >> 2;
+		FsmRow = pc_in_list % btbSize;		
 	}
 	return FsmRow;
 }
@@ -367,18 +360,17 @@ int getTagBits(unsigned btbSize, uint32_t pc){
 
 void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 {
-	uint32_t pc_in_list =  btb_list[hash_func(btbSize, pc)].getBranchPC();
+	int index = hash_func(btbSize, pc);
+	uint32_t pc_in_list =  btb_list[index].getBranchPC();
 	if(getTagBits(btbSize, pc_in_list) == getTagBits(btbSize, pc)){
-		btb_list[pc_in_list].updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
-		btb_list[pc_in_list].updateFSM(calculteFsmPtr(pc), taken); //* update the state machine of the existing pc branch
-		//update history
-		return;
+		btb_list[index].updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
+		btb_list[index].updateFSM(calculteFsmPtr(pc), taken); //* update the state machine of the existing pc branch
+		btb_list[index].updateHistory(taken);
+	return;
 	}
 	else{
 		std::shared_ptr<history> hist = nullptr;
 		std::shared_ptr<fsm> Fsm = nullptr;
-		//add shared\not shared
-		int fsm_size = int(pow(2,historySize));
 		if(isGlobalHist){
 			hist = std::make_shared<history>(historySize);
 		}
@@ -386,7 +378,7 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 			Fsm = std::make_shared<fsm>(fsm_size, fsmState);
 			Fsm->updateFSM(calculteFsmPtr(pc), taken);
 		}
-		btb_list[pc_in_list] = branch(getTagBits(this->btbSize,pc), targetPc, hist, Fsm, isGlobalHist, isGlobalTable, historySize, fsm_size, fsmState);
+		btb_list[index] = branch(getTagBits(this->btbSize,pc), targetPc, hist, Fsm, isGlobalHist, isGlobalTable, history_size, fsm_size, fsmState);
 	}
 }
 
@@ -395,7 +387,8 @@ bool bp::nextPred(uint32_t pc)
 	int pc_index = hash_func(btbSize, pc);
 	if(btb_list[pc_index].getBranchPC() != 0){
 		states* Fsm = btb_list[pc_index].getFSM()->getCurrentState();
-		if(Fsm[calculteFsmPtr(pc)] == SNT || Fsm[calculteFsmPtr(pc)] == WNT) return false;
+		int index = calculteFsmPtr(pc);
+		if(Fsm[index] == SNT || Fsm[index] == WNT) return false;
 		else return true;
 	}
 	return false;
@@ -403,11 +396,10 @@ bool bp::nextPred(uint32_t pc)
 
 int bp::calculateMemorySize()
 {
-	int fsm_size = int(pow(2, log2(historySize)));
-	int hist_size = historySize;
-	if(!isGlobalTable) fsm_size = fsm_size * btb_list.size();
-	if(!isGlobalHist) hist_size = hist_size * btb_list.size();
-	return hist_size + fsm_size + (SIZE_OF_PC + SIZE_OF_TARGET_PC + VALID_BIT) * btb_list.size();
+	if(!Shared) return (history_size + fsm_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
+	else if(isGlobalTable && isGlobalHist) return 2 + SIZE_OF_TARGET_PC + history_size + fsm_size + tagSize * btb_list.size();
+	else if(isGlobalHist) return fsm_size + (history_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
+	else return history_size + (fsm_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
 }
 
 void bp::statsUpdate(bool taken)
@@ -420,12 +412,14 @@ void bp::statsUpdate(bool taken)
 }
 
 int calcuteFsmNum(unsigned historySize, unsigned tagSize, int shared){
-	if(shared) return int(pow(2,historySize));
+	if(!shared) return int(pow(2,historySize));
 	else return int(pow(2,historySize + tagSize));
 }
 
 void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared)
 {
+	history_size = historySize;
+	fsm_size = calcuteFsmNum(historySize , tagSize, shared);
 	this->btbSize = btbSize;
 	this->historySize = historySize;
 	this->tagSize = tagSize;
@@ -434,8 +428,7 @@ void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize
 	this->isGlobalTable = isGlobalTable;
 	this->Shared = shared;
 	this->btb_list.resize(btbSize);
-	history_size = historySize;
-	fsm_size = calcuteFsmNum(historySize , tagSize, shared);
+
 }
 
 /**
@@ -478,6 +471,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst)
 	else{
 		main_bp.addNewBranch(pc, pred_dst, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
 		main_bp.statsUpdate(taken == main_bp.nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
+		return;
 	}
 	return;
 }
