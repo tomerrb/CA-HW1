@@ -330,20 +330,22 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 	if(getTagBits(btbSize, pc_in_list) == getTagBits(btbSize, pc)){
 		btb_list[pc_in_list].updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
 		btb_list[pc_in_list].updateFSM(calculteFsmPtr(pc), taken); //* update the state machine of the existing pc branch
+		//update history
 		return;
 	}
 	else{
 		std::shared_ptr<history> hist = nullptr;
 		std::shared_ptr<fsm> Fsm = nullptr;
+		//add shared\not shared
 		int fsm_size = int(pow(2,historySize));
 		if(isGlobalHist){
-			hist = std::make_shared<history>(history(historySize));
+			hist = std::make_shared<history>(historySize);
 		}
 		if(isGlobalTable){
-			Fsm = std::make_shared<fsm>(fsm(fsm_size, fsmState));
+			Fsm = std::make_shared<fsm>(fsm_size, fsmState);
 			Fsm->updateFSM(calculteFsmPtr(pc), taken);
 		}
-		btb_list[pc_in_list] = branch(pc, targetPc, hist, Fsm, isGlobalHist, isGlobalTable, historySize, fsm_size, fsmState);
+		btb_list[pc_in_list] = branch(getTagBits(pc), targetPc, hist, Fsm, isGlobalHist, isGlobalTable, historySize, fsm_size, fsmState);
 	}
 }
 
