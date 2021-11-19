@@ -19,6 +19,8 @@
 
 enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
 
+int history_size = 0;
+int fsm_size = 0;
 /**
  * history class
  * 
@@ -31,9 +33,10 @@ private:
 public:
 	history(int history_size);
 	~history();
-	//history(const &history) = default;
-	//history& operator=(const &history) = default;
-	const int* getHistory ();
+	history(const history& hist);
+	history& operator=(const history& hist);
+	const int* getHistory();
+	int getSize();
 	void updateHistory (bool taken);
 	const int historyArrToNum();
 };
@@ -54,6 +57,29 @@ history::~history()
 const int* history::getHistory()
 {
 	return this->array;
+}
+
+int history::getSize(){
+	return history_size;
+}
+
+history::history(const history& hist): history_size(hist.history_size){
+	for(int i = 0 ; i < history_size ; i++){
+		array[i] = hist.array[i];
+	}
+}
+
+history& history::operator=(const history& hist){
+	if (this == &hist){
+		return *this;
+	}
+	delete[] array;
+	array = new int[hist.history_size];
+	for(int i = 0 ; i < hist.history_size ; i++){
+		array[i] = hist.array[i];
+	}
+	history_size = hist.history_size;
+	return *this;
 }
 
 void history::updateHistory (bool taken)  // update the array - shift left
@@ -95,6 +121,7 @@ public:
 	~fsm();
 	states* getCurrentState();
 	void updateFSM (int fsm_num, bool taken);
+	fsm& operator=(const fsm& Fsm);
 };
 
 fsm::fsm(int num_of_fsm, unsigned initial_state): fsm_num(num_of_fsm)
@@ -108,6 +135,19 @@ fsm::fsm(int num_of_fsm, unsigned initial_state): fsm_num(num_of_fsm)
 fsm::~fsm()
 {
 	delete[] FSMs;
+}
+
+fsm& fsm::operator=(const fsm& Fsm){
+	if (this == &Fsm){
+		return *this;
+	}
+	delete[] FSMs;
+	FSMs = new states[Fsm.fsm_num];
+	for(int i = 0 ; i < Fsm.fsm_num ; i++){
+		FSMs[i] = Fsm.FSMs[i];
+	}
+	fsm_num = Fsm.fsm_num;
+	return *this;
 }
 
 states* fsm::getCurrentState()
@@ -168,14 +208,14 @@ public:
 };
 
 branch::branch(uint32_t branchPC = 0, uint32_t targetPC = 0, std::shared_ptr<history> hist = nullptr, std::shared_ptr<fsm> Fsm = nullptr,
-			    bool isGlobalHist = false, bool isGlobalFSM = false, int numOfHistBits = 0, int numOfFSMBits = 0, unsigned initial_state = WNT):
+			    bool isGlobalHist = false, bool isGlobalFSM = false, int numOfHistBits = history_size, int numOfFSMBits = fsm_size, unsigned initial_state = WNT):
 			 		branchPC(branchPC), targetPC(targetPC){
 	if (!isGlobalHist || hist == nullptr){
-		History = std::make_shared<history>(history(numOfHistBits));
+		History = std::make_shared<history>(numOfHistBits);
 	}
 	else History = hist;
 	if (!isGlobalFSM || Fsm == nullptr){
-		FSM = std::make_shared<fsm>(fsm(numOfFSMBits, initial_state)); 
+		FSM = std::make_shared<fsm>(numOfFSMBits, initial_state); 
 	}
 	else FSM = Fsm;
 }
@@ -287,12 +327,15 @@ int bp::calculteFsmPtr(uint32_t pc)
 	}
 	if (this->Shared == 0)
 	{
-		FsmRow = hist;
-		for (int i = 0; i < this->tagSize; i++)
+		FsmRow = 0;
+		int i = 0;
+		while(pc_in_list)
 		{
-			FsmRow += int(pow(2,(pc_in_list >> (this->tagSize - i))));
+			i++;
+			FsmRow += int(pow(2,i))*(pc_in_list % 2);
+			pc_in_list = pc_in_list >> 1;
 		}
-		
+		FsmRow += hist << i;
 	}
 	return FsmRow;
 }
@@ -315,12 +358,10 @@ bool IsdataValid(unsigned btbSize, unsigned historySize, unsigned tagSize, unsig
 
 bp::bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared):
 		btbSize(btbSize), historySize(historySize), tagSize(tagSize), fsmState(FSMState),
-		isGlobalHist(isGlobalHist), isGlobalTable(isGlobalTable), Shared(shared){
-			btb_list.resize(btbSize);
-		}
+		isGlobalHist(isGlobalHist), isGlobalTable(isGlobalTable), Shared(shared){}
 
 int getTagBits(unsigned btbSize, uint32_t pc){
-	uint32_t tag = pc<<int(2 + log2(btbSize));
+	uint32_t tag = pc >> int(2 + log2(btbSize));
 	return tag;
 }
 
@@ -378,6 +419,11 @@ void bp::statsUpdate(bool taken)
 	bp_stats.size = calculateMemorySize();
 }
 
+int calcuteFsmNum(unsigned historySize, unsigned tagSize, int shared){
+	if(shared) return int(pow(2,historySize));
+	else return int(pow(2,historySize + tagSize));
+}
+
 void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared)
 {
 	this->btbSize = btbSize;
@@ -388,6 +434,8 @@ void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize
 	this->isGlobalTable = isGlobalTable;
 	this->Shared = shared;
 	this->btb_list.resize(btbSize);
+	history_size = historySize;
+	fsm_size = calcuteFsmNum(historySize , tagSize, shared);
 }
 
 /**
