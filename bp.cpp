@@ -168,11 +168,11 @@ branch::branch(uint32_t branchPC, uint32_t targetPC, std::shared_ptr<history> hi
 			    bool isGlobalHist, bool isGlobalFSM, int numOfHistBits, int numOfFSMBits, unsigned initial_state):
 			 		branchPC(branchPC), targetPC(targetPC){
 	if (!isGlobalHist || hist == nullptr){
-		History = std::make_shared<history>(history(numOfHistBits));
+		History = std::make_shared<history>(new history(numOfHistBits));
 	}
 	else History = hist;
 	if (!isGlobalFSM || Fsm == nullptr){
-		FSM = std::make_shared<fsm>(fsm(numOfFSMBits, initial_state)); 
+		FSM = std::make_shared<fsm>(new fsm(numOfFSMBits, initial_state)); 
 	}
 	else FSM = Fsm;
 } 
@@ -271,7 +271,7 @@ int bp::calculteFsmPtr(uint32_t pc)
 	if (this->Shared == 0)
 	{
 		FsmRow = hist;
-		for (int i = 0; i < int(tagSize); i++)
+		for (int i = 0; i < this->tagSize; i++)
 		{
 			FsmRow += int(pow(2,(pc_in_list >> (this->tagSize - i))));
 		}
@@ -290,7 +290,7 @@ bool IsdataValid(unsigned btbSize, unsigned historySize, unsigned tagSize, unsig
 
 		for(int i = 0 ; i < 6 ; i++)
 		{
-			if (btbSize == int(pow(2,i))) return true;
+			if (btbSize == 2^i) return true;
 		}
 
 		return false;
@@ -312,10 +312,10 @@ branch* bp::createNewBranch(unsigned branchPC, unsigned targetPC, bool taken){ /
 	std::shared_ptr<fsm> Fsm = nullptr;
 	int fsm_size = int(pow(2,historySize));
 	if(isGlobalHist){
-		hist = std::make_shared<history>(history(historySize));
+		hist = std::make_shared<history>(new history(historySize));
 	}
 	if(isGlobalTable){
-		Fsm = std::make_shared<fsm>(fsm(fsm_size, fsmState));
+		Fsm = std::make_shared<fsm>(new fsm(fsm_size, fsmState));
 		Fsm->updateFSM(calculteFsmPtr(branchPC), taken);
 	}
 	return new branch(branchPC, targetPC, hist, Fsm, isGlobalHist, isGlobalTable, historySize, fsm_size, fsmState);
@@ -372,48 +372,47 @@ void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize
  * 
  **/
 
-bp* main_bp = new bp(0,0,0,0,false,false,0); //Global branch predictor
+bp main_bp = bp(0,0,0,0,false,false,0); //Global branch predictor
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState, bool isGlobalHist, bool isGlobalTable, int Shared)
 {
 	if(IsdataValid(btbSize, historySize, tagSize, fsmState)) return -1;
-	main_bp->BP_init_update(btbSize, historySize, tagSize, fsmState, isGlobalTable, isGlobalHist, Shared);
+	main_bp.BP_init_update(btbSize, historySize, tagSize, fsmState, isGlobalTable, isGlobalHist, Shared);
 	return 0;
 }
 
 bool BP_predict(uint32_t pc, uint32_t *dst)
 {
-	if (!main_bp->btb_list[hash_func(main_bp->btbSize, pc)]) // pc is not branch operation
+	if (!main_bp.btb_list[hash_func(main_bp.btbSize, pc)]) // pc is not branch operation
 	{
 		*dst = pc + 4;
 		return false;
 	}
-	if(main_bp->nextPred(pc) == SNT ||  main_bp->nextPred(pc) == WNT)
+	if(main_bp.nextPred(pc) == SNT ||  main_bp.nextPred(pc) == WNT);
 	{
 		*dst = pc + 4;
 		return false;
 	}
-	*dst = main_bp->btb_list[hash_func(main_bp->btbSize, pc)]->getTargetPC();
+	*dst = main_bp.btb_list[hash_func(main_bp.btbSize, pc)]->getTargetPC();
 	return true;
 }
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst)
 {
-	if(main_bp->nextPred(pc)){  // check if the pc state machine shows to take the prediction or not
-		main_bp->addNewBranch(pc, targetPc, taken); // add new noot to the btb - add the pred_dst because the prediction is taken
-		main_bp->statsUpdate(taken == main_bp->nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "false" = don't add any flush_num
+	if(main_bp.nextPred(pc)){  // check if the pc state machine shows to take the prediction or not
+		main_bp.addNewBranch(pc, targetPc, taken); // add new noot to the btb - add the pred_dst because the prediction is taken
+		main_bp.statsUpdate(taken == main_bp.nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "false" = don't add any flush_num
 	}
 	else{
-		main_bp->addNewBranch(pc, pred_dst, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
-		main_bp->statsUpdate(taken == main_bp->nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
+		main_bp.addNewBranch(pc, pred_dst, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
+		main_bp.statsUpdate(taken == main_bp.nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
 	}
 	return;
 }
 
 void BP_GetStats(SIM_stats *curStats)
 {
-	curStats->br_num = main_bp->bp_stats.br_num;
-	curStats->flush_num = main_bp->bp_stats.flush_num;
-	curStats->size = main_bp->bp_stats.size;
-	delete(main_bp);
+	curStats->br_num = main_bp.bp_stats.br_num;
+	curStats->flush_num = main_bp.bp_stats.flush_num;
+	curStats->size = main_bp.bp_stats.size;
 }
