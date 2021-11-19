@@ -386,7 +386,7 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 			Fsm = std::make_shared<fsm>(fsm_size, fsmState);
 			Fsm->updateFSM(calculteFsmPtr(pc), taken);
 		}
-		btb_list[pc_in_list] = branch(getTagBits(pc), targetPc, hist, Fsm, isGlobalHist, isGlobalTable, historySize, fsm_size, fsmState);
+		btb_list[pc_in_list] = branch(getTagBits(this->btbSize,pc), targetPc, hist, Fsm, isGlobalHist, isGlobalTable, historySize, fsm_size, fsmState);
 	}
 }
 
