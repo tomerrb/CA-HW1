@@ -14,7 +14,7 @@
 
 #define SIZE_OF_BYTE 8
 #define SIZE_OF_PC 32
-#define SIZE_OF_TARGET_PC 32
+#define SIZE_OF_TARGET_PC 30
 #define VALID_BIT 1
 
 enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
@@ -29,9 +29,8 @@ class history
 {
 private:
 	int* array;
-	int history_size;
 public:
-	history(int history_size);
+	history();
 	~history();
 	history(const history& hist);
 	history& operator=(const history& hist);
@@ -41,7 +40,7 @@ public:
 	const int historyArrToNum();
 };
 
-history::history(int history_size)
+history::history()
 {
 	array = new int[history_size]();
 	for (int i = 0 ; i < history_size ; i++){
@@ -63,7 +62,7 @@ int history::getSize(){
 	return history_size;
 }
 
-history::history(const history& hist): history_size(hist.history_size){
+history::history(const history& hist){
 	for(int i = 0 ; i < history_size ; i++){
 		array[i] = hist.array[i];
 	}
@@ -74,16 +73,16 @@ history& history::operator=(const history& hist){
 		return *this;
 	}
 	delete[] array;
-	array = new int[hist.history_size];
-	for(int i = 0 ; i < hist.history_size ; i++){
+	array = new int[history_size];
+	for(int i = 0 ; i < history_size ; i++){
 		array[i] = hist.array[i];
 	}
-	history_size = hist.history_size;
 	return *this;
 }
 
 void history::updateHistory (bool taken)  // update the array - shift left
 {
+
 	for(int i = history_size - 1 ; i > 0 ; i--){
 		array[i] = array[i-1];
 	}
@@ -101,6 +100,8 @@ const int history::historyArrToNum()
 			historyAsNumber += pow(2,i);
 		}
 	}
+	printf("\nhist_index = %d \n", historyAsNumber);
+
 	return historyAsNumber;
 	
 }
@@ -157,24 +158,18 @@ states* fsm::getCurrentState()
 
 void fsm::updateFSM(int fsm_num, bool taken)
 {
-	if(FSMs[fsm_num] == SNT)
-	{
+	if(FSMs[fsm_num] == SNT){
 		if(taken) FSMs[fsm_num] = WNT;
 	}
-	if (FSMs[fsm_num] == WNT)
-	{
+	else if (FSMs[fsm_num] == WNT){
 		if(taken) FSMs[fsm_num] = WT;
 		else FSMs[fsm_num] = SNT;
 	}
-	
-	if (FSMs[fsm_num] == WT)
-	{
+	else if (FSMs[fsm_num] == WT){
 		if(taken) FSMs[fsm_num] = ST;
 		else FSMs[fsm_num] = WNT;
 	}
-	
-	if (FSMs[fsm_num] == ST)
-	{
+	else if (FSMs[fsm_num] == ST){
 		if(!taken) FSMs[fsm_num] = WT;
 	}
 }
@@ -211,7 +206,7 @@ branch::branch(uint32_t branchPC = 0, uint32_t targetPC = 0, std::shared_ptr<his
 			    bool isGlobalHist = false, bool isGlobalFSM = false, int numOfHistBits = history_size, int numOfFSMBits = fsm_size, unsigned initial_state = WNT):
 			 		branchPC(branchPC), targetPC(targetPC){
 	if (!isGlobalHist || hist == nullptr){
-		History = std::make_shared<history>(numOfHistBits);
+		History = std::make_shared<history>();
 	}
 	else History = hist;
 	if (!isGlobalFSM || Fsm == nullptr){
@@ -311,12 +306,13 @@ int hash_func(unsigned btbSize, uint32_t pc){
 int bp::calculteFsmPtr(uint32_t pc)
 {
 	int FsmRow = 0;
-	uint32_t pc_in_list = this->btb_list[hash_func(this->btbSize, pc)].getBranchPC();
-	int hist = this->btb_list[hash_func(this->btbSize, pc)].getHistory()->historyArrToNum();
+	int bhr_index = hash_func(this->btbSize, pc);
+	uint32_t pc_in_list = this->btb_list[bhr_index].getBranchPC();
+	int hist = this->btb_list[bhr_index].getHistory()->historyArrToNum();
 	if (this->Shared == 1)
 	{
 		int pcLSB = pc >> 2;
-		pcLSB = pcLSB & int(pow(2, this->historySize) - 1);
+		pcLSB = pcLSB & int(pow(2, history_size) - 1);
 		FsmRow = hist ^ pcLSB;
 	}
 	if (this->Shared == 2)
@@ -327,8 +323,7 @@ int bp::calculteFsmPtr(uint32_t pc)
 	}
 	if (this->Shared == 0)
 	{
-		pc_in_list = pc_in_list >> 2;
-		FsmRow = pc_in_list % btbSize;		
+		FsmRow = hist;		
 	}
 	return FsmRow;
 }
@@ -362,7 +357,7 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 {
 	int index = hash_func(btbSize, pc);
 	uint32_t pc_in_list =  btb_list[index].getBranchPC();
-	if(getTagBits(btbSize, pc_in_list) == getTagBits(btbSize, pc)){
+	if(pc_in_list == getTagBits(btbSize, pc)){
 		btb_list[index].updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
 		btb_list[index].updateFSM(calculteFsmPtr(pc), taken); //* update the state machine of the existing pc branch
 		btb_list[index].updateHistory(taken);
@@ -372,12 +367,14 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 		std::shared_ptr<history> hist = nullptr;
 		std::shared_ptr<fsm> Fsm = nullptr;
 		if(isGlobalHist){
-			hist = std::make_shared<history>(historySize);
+			hist = std::make_shared<history>();
+			hist->updateHistory(taken);
 		}
 		if(isGlobalTable){
 			Fsm = std::make_shared<fsm>(fsm_size, fsmState);
 			Fsm->updateFSM(calculteFsmPtr(pc), taken);
 		}
+		
 		btb_list[index] = branch(getTagBits(this->btbSize,pc), targetPc, hist, Fsm, isGlobalHist, isGlobalTable, history_size, fsm_size, fsmState);
 	}
 }
@@ -396,10 +393,10 @@ bool bp::nextPred(uint32_t pc)
 
 int bp::calculateMemorySize()
 {
-	if(Shared && isGlobalHist || isGlobalHist && isGlobalTable) return history_size + fsm_size + (VALID_BIT + tagSize + SIZE_OF_TARGET_PC) * btb_list.size();
-	else if(Shared || isGlobalTable) return fsm_size + (history_size + VALID_BIT + tagSize + SIZE_OF_TARGET_PC) * btb_list.size();
-	else if(isGlobalHist) return history_size + (fsm_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
-	else return (history_size + fsm_size + tagSize + 2 + SIZE_OF_TARGET_PC) * btb_list.size();
+	if(isGlobalHist && isGlobalTable) return history_size + fsm_size * 2 + (VALID_BIT + tagSize + SIZE_OF_TARGET_PC) * btb_list.size();
+	else if(isGlobalTable && !isGlobalHist) return fsm_size * 2 + (history_size + VALID_BIT + tagSize + SIZE_OF_TARGET_PC) * btb_list.size();
+	else if(isGlobalHist && !isGlobalTable) return history_size + (fsm_size * 2 + tagSize + VALID_BIT + SIZE_OF_TARGET_PC) * btb_list.size();
+	else return (history_size + fsm_size * 2 + tagSize + VALID_BIT + SIZE_OF_TARGET_PC) * btb_list.size();
 }
 
 void bp::statsUpdate(bool taken)
@@ -408,12 +405,10 @@ void bp::statsUpdate(bool taken)
 		bp_stats.flush_num++; //* update flush number only if necessary *//
 	}
 	bp_stats.br_num++;
-	bp_stats.size = calculateMemorySize();
 }
 
 int calcuteFsmNum(unsigned historySize, unsigned tagSize, bool isGlobalHist, bool isGlobalTable, int shared){
-	if(isGlobalTable && !shared) return int(pow(2,historySize + tagSize));
-	else return int(pow(2,historySize + 1));
+	return int(pow(2,historySize));
 }
 
 void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared)
@@ -448,28 +443,28 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
 bool BP_predict(uint32_t pc, uint32_t *dst)
 {
 	int pc_index = hash_func(main_bp.btbSize, pc);
-	if (pc_index >= main_bp.btb_list.size()) // pc is not branch operation
-	{
+	if (pc_index >= main_bp.btb_list.size()){
 		*dst = pc + 4;
 		return false;
 	}
-	if(main_bp.nextPred(pc) == SNT ||  main_bp.nextPred(pc) == WNT);
-	{
+	bool next_pred = main_bp.nextPred(pc);
+	if(next_pred == false){
 		*dst = pc + 4;
 		return false;
 	}
-	*dst = main_bp.btb_list[hash_func(main_bp.btbSize, pc)].getTargetPC();
+	*dst = main_bp.btb_list[pc_index].getTargetPC();
 	return true;
 }
 
 void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst)
 {
-	if(main_bp.nextPred(pc)){  // check if the pc state machine shows to take the prediction or not
+	bool next_pred = main_bp.nextPred(pc);
+	if(next_pred){  // check if the pc state machine shows to take the prediction or not
 		main_bp.statsUpdate(taken == main_bp.nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "false" = don't add any flush_num
 		main_bp.addNewBranch(pc, targetPc, taken); // add new noot to the btb - add the pred_dst because the prediction is taken
 	}
 	else{
-		main_bp.statsUpdate(taken == main_bp.nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
+		main_bp.statsUpdate(taken == next_pred); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
 		main_bp.addNewBranch(pc, pred_dst, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
 		return;
 	}
@@ -480,5 +475,6 @@ void BP_GetStats(SIM_stats *curStats)
 {
 	curStats->br_num = main_bp.bp_stats.br_num;
 	curStats->flush_num = main_bp.bp_stats.flush_num;
-	curStats->size = main_bp.bp_stats.size;
+	curStats->size = main_bp.calculateMemorySize();
+;
 }
