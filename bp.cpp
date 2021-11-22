@@ -21,6 +21,12 @@ enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
 
 int history_size = 0;
 int fsm_size = 0;
+
+int calculateFsmSize(unsigned historySize){
+	return int(pow(2,historySize));
+}
+
+
 /**
  * history class
  * 
@@ -276,6 +282,9 @@ private:
 	bool isGlobalTable;
 	int Shared;
 	SIM_stats bp_stats;
+	std::shared_ptr<history> global_history;
+	std::shared_ptr<fsm> global_fsm;
+
 
 public:
 	bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared);
@@ -291,8 +300,9 @@ public:
 	friend void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst);
 	friend void BP_GetStats(SIM_stats *curStats);
 	
-
 };
+
+bp main_bp = bp(0,0,0,0,false,false,0); //Global branch predictor
 
 int hash_func(unsigned btbSize, uint32_t pc){
 	uint32_t temp = pc>>2;
@@ -343,7 +353,10 @@ bool IsdataValid(unsigned btbSize, unsigned historySize, unsigned tagSize, unsig
 
 bp::bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared):
 		btbSize(btbSize), historySize(historySize), tagSize(tagSize), fsmState(FSMState),
-		isGlobalHist(isGlobalHist), isGlobalTable(isGlobalTable), Shared(shared){}
+		isGlobalHist(isGlobalHist), isGlobalTable(isGlobalTable), Shared(shared){
+			global_history = std::make_shared<history>();
+			global_fsm = std::make_shared<fsm>(calculateFsmSize(historySize),FSMState);
+		}
 
 int getTagBits(unsigned btbSize, uint32_t pc){
 	uint32_t tag = pc >> int(2 + log2(btbSize));
@@ -366,16 +379,16 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 		std::shared_ptr<history> hist = nullptr;
 		std::shared_ptr<fsm> Fsm = nullptr;
 		if(isGlobalHist){
-			hist = std::make_shared<history>();
+			hist = main_bp.global_history;
 			hist->updateHistory(taken);
 		}
 		if(isGlobalTable){
-			Fsm = std::make_shared<fsm>(fsm_size, fsmState);
+			Fsm = main_bp.global_fsm;
 			Fsm->updateFSM(fsm_index, taken);
 		}
 		btb_list[bhr_index] = branch(pc_tag, targetPc, hist, Fsm, isGlobalHist, isGlobalTable, history_size, fsm_size, fsmState);
-		btb_list[bhr_index].getFSM()->updateFSM(fsm_index, taken);
-		btb_list[bhr_index].getHistory()->updateHistory(taken);
+		if(!isGlobalTable) btb_list[bhr_index].getFSM()->updateFSM(fsm_index, taken);
+		if(!isGlobalHist)btb_list[bhr_index].getHistory()->updateHistory(taken);
 	}
 }
 
@@ -407,14 +420,11 @@ void bp::statsUpdate(bool taken)
 	bp_stats.br_num++;
 }
 
-int calcuteFsmSize(unsigned historySize, unsigned btbSize, bool isGlobalTable, int shared){
-	return int(pow(2,historySize));
-}
 
 void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared)
 {
 	history_size = historySize;
-	fsm_size = calcuteFsmSize(historySize, btbSize, isGlobalTable, shared);
+	fsm_size = calculateFsmSize(historySize);
 	this->btbSize = btbSize;
 	this->historySize = historySize;
 	this->tagSize = tagSize;
@@ -431,7 +441,6 @@ void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize
  * 
  **/
 
-bp main_bp = bp(0,0,0,0,false,false,0); //Global branch predictor
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState, bool isGlobalHist, bool isGlobalTable, int Shared)
 {
