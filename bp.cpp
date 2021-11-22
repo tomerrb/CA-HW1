@@ -307,7 +307,7 @@ bp main_bp = bp(0,0,0,0,false,false,0); //Global branch predictor
 
 int hash_func(unsigned btbSize, uint32_t pc){
 	uint32_t temp = pc>>2;
-	int index = int(pow(2, log2(btbSize) - 1)) & temp;
+	int index = int(pow(2, log2(btbSize)) - 1) & temp;
 	return index;
 }
 
@@ -444,7 +444,7 @@ void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState, bool isGlobalHist, bool isGlobalTable, int Shared)
 {
 	if(!IsdataValid(btbSize, historySize, tagSize, fsmState)) return -1;
-	main_bp.BP_init_update(btbSize, historySize, tagSize, fsmState, isGlobalTable, isGlobalHist, Shared);
+	main_bp.BP_init_update(btbSize, historySize, tagSize, fsmState, isGlobalHist, isGlobalTable, Shared);
 	return 0;
 }
 
