@@ -361,16 +361,16 @@ bp::bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMSta
 		btbSize(btbSize), historySize(historySize), tagSize(tagSize), fsmState(FSMState),
 		isGlobalHist(isGlobalHist), isGlobalTable(isGlobalTable), Shared(shared){}
 
-int getTagBits(unsigned btbSize, uint32_t pc){
+int getTagBits(unsigned btbSize, uint32_t pc, int tag_size){
 	uint32_t tag = pc >> int(2 + log2(btbSize));
-	return tag;
+	return tag & int(pow(2, tag_size) - 1);
 }
 
 void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 {
 	int bhr_index = hash_func(btbSize, pc);
 	int fsm_index = calculateFsmPtr(pc);
-	int pc_tag = getTagBits(btbSize, pc);
+	int pc_tag = getTagBits(btbSize, pc, main_bp.tagSize);
 	uint32_t pc_in_list =  btb_list[bhr_index].getBranchPC();
 	if(pc_in_list == pc_tag){
 		btb_list[bhr_index].updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
@@ -451,7 +451,7 @@ int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned f
 bool BP_predict(uint32_t pc, uint32_t *dst)
 {
 	int pc_index = hash_func(main_bp.btbSize, pc);
-	int pc_tag = getTagBits(main_bp.btbSize, pc);
+	int pc_tag = getTagBits(main_bp.btbSize, pc, main_bp.tagSize);
 	uint32_t pc_in_list =  main_bp.btb_list[pc_index].getBranchPC();
 	if(pc_in_list != pc_tag){
 		*dst = pc + 4;
@@ -475,7 +475,7 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst)
 {
 	bool next_pred;
 	int pc_index = hash_func(main_bp.btbSize, pc);
-	int pc_tag = getTagBits(main_bp.btbSize, pc);
+	int pc_tag = getTagBits(main_bp.btbSize, pc, main_bp.tagSize);
 	uint32_t pc_in_list =  main_bp.btb_list[pc_index].getBranchPC();
 	if(pc_in_list != pc_tag){
 		next_pred = false;
