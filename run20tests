@@ -1,0 +1,44 @@
+#!/bin/bash
+./bp_main  tests/example1.trc >outputs/out20_1.txt
+./bp_main  tests/example2.trc >outputs/out20_2.txt
+./bp_main  tests/example3.trc >outputs/out20_3.txt
+./bp_main  tests/example4.trc >outputs/out20_4.txt
+./bp_main  tests/example5.trc >outputs/out20_5.txt
+./bp_main  tests/example6.trc >outputs/out20_6.txt
+./bp_main  tests/example7.trc >outputs/out20_7.txt
+./bp_main  tests/example8.trc >outputs/out20_8.txt
+./bp_main  tests/example9.trc >outputs/out20_9.txt
+./bp_main  tests/example10.trc >outputs/out20_10.txt
+./bp_main  tests/example11.trc >outputs/out20_11.txt
+./bp_main  tests/example12.trc >outputs/out20_12.txt
+./bp_main  tests/example13.trc >outputs/out20_13.txt
+./bp_main  tests/example14.trc >outputs/out20_14.txt
+./bp_main  tests/example15.trc >outputs/out20_15.txt
+./bp_main  tests/example16.trc >outputs/out20_16.txt
+./bp_main  tests/example17.trc >outputs/out20_17.txt
+./bp_main  tests/example18.trc >outputs/out20_18.txt
+./bp_main  tests/example19.trc >outputs/out20_19.txt
+./bp_main  tests/example20.trc >outputs/out20_20.txt
+
+diff -s outputs/out20_1.txt ref_results/example1.out
+diff -s outputs/out20_2.txt ref_results/example2.out
+diff -s outputs/out20_3.txt ref_results/example3.out
+diff -s outputs/out20_4.txt ref_results/example4.out
+diff -s outputs/out20_5.txt ref_results/example5.out
+diff -s outputs/out20_6.txt ref_results/example6.out
+diff -s outputs/out20_7.txt ref_results/example7.out
+diff -s outputs/out20_8.txt ref_results/example8.out
+diff -s outputs/out20_9.txt ref_results/example9.out
+diff -s outputs/out20_10.txt ref_results/example10.out
+diff -s outputs/out20_11.txt ref_results/example11.out
+diff -s outputs/out20_12.txt ref_results/example12.out
+diff -s outputs/out20_13.txt ref_results/example13.out
+diff -s outputs/out20_14.txt ref_results/example14.out
+diff -s outputs/out20_15.txt ref_results/example15.out
+diff -s outputs/out20_16.txt ref_results/example16.out
+diff -s outputs/out20_17.txt ref_results/example17.out
+diff -s outputs/out20_18.txt ref_results/example18.out
+diff -s outputs/out20_19.txt ref_results/example19.out
+diff -s outputs/out20_20.txt ref_results/example20.out
+
+

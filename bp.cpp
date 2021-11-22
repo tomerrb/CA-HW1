@@ -441,7 +441,6 @@ void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize
  * 
  **/
 
-
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState, bool isGlobalHist, bool isGlobalTable, int Shared)
 {
 	if(!IsdataValid(btbSize, historySize, tagSize, fsmState)) return -1;
@@ -486,12 +485,14 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst)
 	}
 	else next_pred = main_bp.nextPred(pc);
 	if(next_pred){  // check if the pc state machine shows to take the prediction or not
-		main_bp.statsUpdate(taken == main_bp.nextPred(pc)); // change the SIM_stats saved in the predictor - add 1 to br_num, "false" = don't add any flush_num
+		main_bp.statsUpdate((taken == main_bp.nextPred(pc)) && (taken && targetPc != pred_dst ||
+			 				!taken && pred_dst == (pc + 4)));
 		main_bp.addNewBranch(pc, targetPc, taken); // add new noot to the btb - add the pred_dst because the prediction is taken
 	}
 	else{
-		main_bp.statsUpdate(taken == next_pred); // change the SIM_stats saved in the predictor - add 1 to br_num, "true" = add 3 to flush_num
-		main_bp.addNewBranch(pc, pred_dst, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
+		main_bp.statsUpdate(taken == next_pred && (taken && targetPc != pred_dst ||
+			 				!taken && pred_dst == (pc + 4)));
+		main_bp.addNewBranch(pc, targetPc, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
 		return;
 	}
 	return;
