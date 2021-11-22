@@ -293,7 +293,7 @@ public:
 	void addNewBranch(uint32_t pc, uint32_t targetPc, bool taken);
 	bool nextPred(uint32_t pc);
 	int calculateMemorySize(); 
-	void statsUpdate(bool taken);
+	void statsUpdate(bool taken, bool same_address);
 	int calculateFsmPtr(uint32_t pc);
 	const branch& createNewBranch(unsigned branchPC, unsigned targetPC, bool taken);
 	void BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared);
@@ -411,9 +411,9 @@ int bp::calculateMemorySize()
 	else return (history_size + fsm_size * 2 + tagSize + VALID_BIT + SIZE_OF_TARGET_PC) * btb_list.size();
 }
 
-void bp::statsUpdate(bool taken)
+void bp::statsUpdate(bool taken, bool same_address)
 {
-	if(!taken){
+	if(!taken || !same_address){
 		bp_stats.flush_num++; //* update flush number only if necessary *//
 	}
 	bp_stats.br_num++;
@@ -479,19 +479,17 @@ void BP_update(uint32_t pc, uint32_t targetPc, bool taken, uint32_t pred_dst)
 	uint32_t pc_in_list =  main_bp.btb_list[pc_index].getBranchPC();
 	if(pc_in_list != pc_tag){
 		next_pred = false;
-		main_bp.statsUpdate(taken == next_pred);
+		main_bp.statsUpdate(taken == next_pred, !(taken && targetPc != pred_dst));
 		main_bp.addNewBranch(pc, targetPc, taken);
 		return;
 	}
 	else next_pred = main_bp.nextPred(pc);
 	if(next_pred){  // check if the pc state machine shows to take the prediction or not
-		main_bp.statsUpdate((taken == main_bp.nextPred(pc)) && (taken && targetPc != pred_dst ||
-			 				!taken && pred_dst == (pc + 4)));
+		main_bp.statsUpdate(taken == main_bp.nextPred(pc), !(taken && targetPc != pred_dst));
 		main_bp.addNewBranch(pc, targetPc, taken); // add new noot to the btb - add the pred_dst because the prediction is taken
 	}
 	else{
-		main_bp.statsUpdate(taken == next_pred && (taken && targetPc != pred_dst ||
-			 				!taken && pred_dst == (pc + 4)));
+		main_bp.statsUpdate(taken == next_pred, !(taken && targetPc != pred_dst));
 		main_bp.addNewBranch(pc, targetPc, taken); // add new note to the BTB - add the targetPC because the prediction is not taken
 		return;
 	}
