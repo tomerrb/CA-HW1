@@ -16,9 +16,10 @@
 #define SIZE_OF_PC 32
 #define SIZE_OF_TARGET_PC 30
 #define VALID_BIT 1
-
+//FSM states
 enum states {SNT = 0, WNT = 1, WT = 2, ST = 3};
 
+//initialize generic history and fsm sizes
 int history_size = 0;
 int fsm_size = 0;
 
@@ -28,6 +29,7 @@ int calculateFsmSize(unsigned historySize){
 
 /**
  * history class
+ * @arg array- an array of booleans representing wether previous branch command was taken or not
  * 
  **/
 class history
@@ -47,6 +49,9 @@ public:
 	friend class bp;
 };
 
+/**
+ * history(): a history class default c'tor
+ * */
 history::history()
 {
 	array = new bool[history_size]();
@@ -55,26 +60,43 @@ history::history()
 	}
 }
 
+/**
+ * ~history(): a history class default d'tor
+ * */
 history::~history()
 {
 	delete[] array;
 }
 
+/**
+ * getHistory(): returns a ptr to beggining of history's array
+ * */
 const bool* history::getHistory()
 {
 	return this->array;
 }
 
+/**
+ * getSize(): returns history's array size
+ * */
 int history::getSize(){
 	return history_size;
 }
 
+/**
+ * history(): a history class copy c'tor
+ * @param hist- history object to be copied
+ * */
 history::history(const history& hist){
 	for(int i = 0 ; i < history_size ; i++){
 		array[i] = hist.array[i];
 	}
 }
 
+/**
+ * operator=(): a history class assignment operator
+ * @param hist- history object to be copied
+ * */
 history& history::operator=(const history& hist){
 	if (this == &hist){
 		return *this;
@@ -87,6 +109,10 @@ history& history::operator=(const history& hist){
 	return *this;
 }
 
+/**
+ * updateHistory(): shift left the history vector values, and add new value
+ * @param taken- recent history to be added
+ * */
 void history::updateHistory (bool taken)  // update the array - shift left
 {
 	for(int i = history_size - 1 ; i > 0 ; i--){
@@ -95,7 +121,10 @@ void history::updateHistory (bool taken)  // update the array - shift left
 	if(taken) array[0] = 1;
 	else array[0] = 0;
 }
-
+/**
+ * resetHistory(): resets history's vector to 0 and add recent history
+ * @param taken- recent history to be added
+ * */
 void history::resetHistory(bool taken){
 	for(int i = 0 ; i < history_size ; i++){
 		array[i] = 0;
@@ -103,6 +132,10 @@ void history::resetHistory(bool taken){
 	if(taken) array[0] = 1;
 }
 
+/**
+ * historyArrToNum(): convert history's vector to an integer number
+ * 
+ * */
 const int history::historyArrToNum()
 {
 	int historyAsNumber = 0;
@@ -120,7 +153,8 @@ const int history::historyArrToNum()
 
 /**
  * fsm class
- * 
+ * @arg FSMs- an array of states used to predict branches taken or not
+ * @arg fsm_num- array size
  **/
 class fsm
 {
@@ -136,6 +170,11 @@ public:
 	friend class bp;
 };
 
+/**
+ * fsm(): a fsm class c'tor
+ * @param num_of_fsm- array size
+ * @param initial_state- generic state for all fsms
+ * */
 fsm::fsm(int num_of_fsm = fsm_size, unsigned initial_state = WNT): fsm_num(num_of_fsm)
 {
 	FSMs = new states[fsm_num]();
@@ -144,11 +183,19 @@ fsm::fsm(int num_of_fsm = fsm_size, unsigned initial_state = WNT): fsm_num(num_o
 	}
 }
 
+/**
+ * ~fsm(): a default fsm class d'tor
+ *
+ * */
 fsm::~fsm()
 {
 	delete[] FSMs;
 }
 
+/**
+ * operator=(): a fsm class assignment operator
+ * @param Fsm- fsm object to be copied
+ * */
 fsm& fsm::operator=(const fsm& Fsm){
 	if (this == &Fsm){
 		return *this;
@@ -162,11 +209,19 @@ fsm& fsm::operator=(const fsm& Fsm){
 	return *this;
 }
 
+/**
+ * getCurrentState(): returns a ptr to beggining of fsm's array
+ * */
 states* fsm::getCurrentState()
 {
 	return this->FSMs;
 }
 
+/**
+ * updateFSM(): update specified fsm according branch resolution
+ * @param fsm_num- number of fsm to update
+ * @param taken- branch resolution
+ * */
 void fsm::updateFSM(int fsm_num, bool taken)
 {
 	if(FSMs[fsm_num] == SNT){
@@ -187,7 +242,11 @@ void fsm::updateFSM(int fsm_num, bool taken)
 
 
 /**
- * branch class
+ * branch class- representing a line in BTB
+ * @arg branchPC- branch tag bits
+ * @arg targetPC- branch target pc to jump to
+ * @arg local_hist- local history. NULL if using global history
+ * @arg local_fsm- local fsm. NULL if using global fsm table
  * 
  **/
 class branch
@@ -215,6 +274,16 @@ public:
 	friend class bp;
 };
 
+/**
+ * branch(): a branch class c'tor
+ * @param branchPC- branch tag bits
+ * @param targetPC- branch target pc to jump to
+ * @param isGlobalHist- true for global, false for local
+ * @param isGlobalFSM- true for global, false for local
+ * @param numOfHistBits- history size
+ * @param numOfFSMBits- fsm size
+ * @param initial_state- generic state for initializing fsm
+ * */
 branch::branch(uint32_t branchPC = 0, uint32_t targetPC = 0, bool isGlobalHist = false, bool isGlobalFSM = false,
 			   int numOfHistBits = history_size, int numOfFSMBits = fsm_size, unsigned initial_state = WNT):
 			 		branchPC(branchPC), targetPC(targetPC){
@@ -226,43 +295,77 @@ branch::branch(uint32_t branchPC = 0, uint32_t targetPC = 0, bool isGlobalHist =
 	}
 }
 
+/**
+ * branch(): a branch class copy c'tor
+ * @param to_copy- branch object to be copied
+ * */
 branch::branch(const branch& to_copy): branchPC(to_copy.branchPC), targetPC(to_copy.targetPC), 
 									   local_hist(to_copy.local_hist), local_fsm(to_copy.local_fsm){}
 
+/**
+ * getBranchPC(): returns current branch's tag
+ * */
 const uint32_t branch::getBranchPC()
 {
 	return this->branchPC;
 }
 
+/**
+ * getTargetPC(): returns current branch's target
+ * */
 const uint32_t branch::getTargetPC()
 {
 	return this->targetPC;
 }
 
+/**
+ * updateTargetPC(): update current branch's target
+ * @param new_PC- the updated target
+ * */
 void branch::updateTargetPC(const uint32_t new_PC)
 {
 	this->targetPC = new_PC;
 }
 
+/**
+ * getTargetPC(): returns reference to current branch's history
+ * */
 const history& branch::getHistory()
 {
 	return local_hist;
 }
 
+/**
+ * updateHistory(): insert new history to current branch
+ * @param taken- recent history to be added
+ * */
 void branch::updateHistory(bool taken)
 {
 	local_hist.updateHistory(taken);
 }
 
+/**
+ * getTargetPC(): returns reference to current branch's fsm
+ * */
 const fsm& branch::getFSM()
 {
 	return local_fsm;
 }
 
+/**
+ * updateFSM(): update current branch's specified fsm according branch resolution
+ * @param fsm_num- number of fsm to update
+ * @param taken- branch resolution
+ * */
 void branch::updateFSM(int fsm_num, bool taken)
 {
 	local_fsm.updateFSM(fsm_num, taken);
 }
+
+/**
+ * operator=(): a branch class assignment operator
+ * @param to_copy- branch object to be copied
+ * */
 branch& branch::operator=(const branch& to_copy)
 {
 	if (this == &to_copy)
@@ -276,9 +379,20 @@ branch& branch::operator=(const branch& to_copy)
 	return *this;
 }
 
-/*
- Branch prediction class
- */
+/**
+ * Branch predictor class
+ * @arg btb_list- vector of branches
+ * @arg btbSize- number of rows in btb
+ * @arg historySize
+ * @arg tagSize
+ * @arg fsmState- initial state
+ * @arg isGlobalHist- true for global, false for local
+ * @arg isGlobalTable- true for global, false for local
+ * @arg shared- shared state- lsb/mid/not shared
+ * @arg bp_stats- stats about current program- size, number of branches and number of flushes
+ * @arg global_history- NULL if using local
+ * @arg global_fsm- NULL if using local
+ **/
 class bp
 {
 private:
@@ -310,44 +424,68 @@ public:
 	
 };
 
-bp main_bp = bp(0,0,0,0,false,false,0); //Global branch predictor
+//global branch predictor to be used during the program running
+bp main_bp = bp(0,0,0,0,false,false,0);
 
+/**
+ * hash_func(): calculate given pc btb table's row
+ * @param btbSize
+ * @param pc
+ * 
+ * @return number of row suitible for pc
+ * */
 int hash_func(unsigned btbSize, uint32_t pc){
 	uint32_t temp = pc>>2;
 	int index = int(pow(2, log2(btbSize)) - 1) & temp;
 	return index;
 }
 
+/**
+ * calculateFsmPtr(): calculate given branch pc fsm's row
+ * @param pc
+ * 
+ * @return number of row suitible for the branch in fsm table
+ * */
 int bp::calculateFsmPtr(uint32_t pc)
 {
 	int FsmRow = 0;
 	int bhr_index = hash_func(this->btbSize, pc);
 	uint32_t pc_in_list = this->btb_list[bhr_index].getBranchPC();
 	int hist;
+	//transform history array to number
 	if(isGlobalHist){
 		hist = main_bp.global_history.historyArrToNum();
 	}
 	else hist = this->btb_list[bhr_index].local_hist.historyArrToNum();
-
-	if (this->Shared == 1)
+	// handeling different cases according to shared status
+	if (this->Shared == 1) //LSB
 	{
 		int pcLSB = pc >> 2;
 		pcLSB = pcLSB & int(pow(2, history_size) - 1);
 		FsmRow = hist ^ pcLSB;
 	}
-	if (this->Shared == 2)
+	if (this->Shared == 2) //mid
 	{
 		int pcMB = pc >> 16;
 		pcMB = pcMB & int(pow(2, history_size) - 1);
 		FsmRow = hist ^ pcMB;
 	}
-	if (this->Shared == 0)
+	if (this->Shared == 0) // not shared
 	{
 		FsmRow = hist;		
 	}
 	return FsmRow;
 }
 
+/**
+ * IsdataValid(): cheking initial arguments for BP constracting
+ * @param btbSize
+ * @param historySize
+ * @param tagSize
+ * @param fsmState- initial fsm's states
+
+ * @return true if valid, false if not
+ * */
 bool IsdataValid(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState)
 	{
 		if(historySize < 1 || historySize > 8) return false;
@@ -364,30 +502,56 @@ bool IsdataValid(unsigned btbSize, unsigned historySize, unsigned tagSize, unsig
 		return false;
 	}
 
+/**
+ * bp(): a bp class c'tor
+ * @param btbSize
+ * @param historySize
+ * @param tagSize
+ * @param FSMState- initial fsm's states
+ * @param isGlobalHist- true for global, false for local
+ * @param isGlobalTable- true for global, false for local
+ * @param shared- shared state- lsb/mid/not shared
+ * */
 bp::bp(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared):
 		btbSize(btbSize), historySize(historySize), tagSize(tagSize), fsmState(FSMState),
 		isGlobalHist(isGlobalHist), isGlobalTable(isGlobalTable), Shared(shared){}
 
+/**
+ * getTagBits(): calculate given pc tag's
+ * @param btbSize
+ * @param pc
+ * @param tag_size
+ * 
+ * @return pc's tag
+ * */
 int getTagBits(unsigned btbSize, uint32_t pc, int tag_size){
 	uint32_t tag = pc >> int(2 + log2(btbSize));
 	return tag & int(pow(2, tag_size) - 1);
 }
 
+/**
+ * addNewBranch(): finds current branch's row. if already exist- updating it, if not- constract a new branch and inserting it to btb
+ * @param pc- new branch pc
+ * @param targetPC- new branch target
+ * @param taken- new branch recent history
+ * */
 void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 {
 	int bhr_index = hash_func(btbSize, pc);
 	int fsm_index = calculateFsmPtr(pc);
 	int pc_tag = getTagBits(btbSize, pc, main_bp.tagSize);
 	uint32_t pc_in_list =  btb_list[bhr_index].getBranchPC();
-	if(pc_in_list == pc_tag){
-		btb_list[bhr_index].updateTargetPC(targetPc); //****************not sure!!!! update the old targetPc to the new one? 
+	if(pc_in_list == pc_tag) //current branch is already in the btb, needs to be updated
+	{ 
+		btb_list[bhr_index].updateTargetPC(targetPc); 
 		if(isGlobalTable) main_bp.global_fsm.updateFSM(fsm_index, taken);
 		else btb_list[bhr_index].updateFSM(fsm_index, taken); //* update the state machine of the existing pc branch
 		if(isGlobalHist) main_bp.global_history.updateHistory(taken);
 		else btb_list[bhr_index].updateHistory(taken);
 		return;
 	}
-	else{
+	else   //un-familliar branch- remove old one and insert new branch
+	{ 
 		btb_list[bhr_index] = branch(pc_tag, targetPc, isGlobalHist, isGlobalTable, history_size, fsm_size, fsmState);
 		if(isGlobalTable && isGlobalHist) main_bp.global_fsm.updateFSM(fsm_index, taken);
 		else if(isGlobalTable && !isGlobalHist) main_bp.global_fsm.updateFSM(0, taken);
@@ -399,6 +563,12 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 	}
 }
 
+/**
+ * nextPred(): returns given branch's prediction
+ * @param pc
+ * 
+ * @return true if taken, false if not-taken
+ * */
 bool bp::nextPred(uint32_t pc)
 {
 	int pc_index = hash_func(btbSize, pc);
@@ -413,6 +583,11 @@ bool bp::nextPred(uint32_t pc)
 	return false;
 }
 
+/**
+ * calculateMemorySize(): calculate current program's bp memory size
+ * 
+ * @return memory size (bits)
+ * */
 int bp::calculateMemorySize()
 {
 	if(isGlobalHist && isGlobalTable) return history_size + fsm_size * 2 + (VALID_BIT + tagSize + SIZE_OF_TARGET_PC) * btb_list.size();
@@ -421,6 +596,12 @@ int bp::calculateMemorySize()
 	else return (history_size + fsm_size * 2 + tagSize + VALID_BIT + SIZE_OF_TARGET_PC) * btb_list.size();
 }
 
+/**
+ * statsUpdate(): update current program's bp stats- number of branches and flushes
+ * @param taken- branch's resolution
+ * @param same_address- true if target pc is pc + 4
+ * 
+ * */
 void bp::statsUpdate(bool taken, bool same_address)
 {
 	if(!taken || !same_address){
@@ -429,7 +610,16 @@ void bp::statsUpdate(bool taken, bool same_address)
 	bp_stats.br_num++;
 }
 
-
+/**
+ * BP_init_update(): an assistant funcion for initialization
+ * @param btbSize
+ * @param historySize
+ * @param tagSize
+ * @param FSMState- initial fsm's states
+ * @param isGlobalHist- true for global, false for local
+ * @param isGlobalTable- true for global, false for local
+ * @param shared- shared state- lsb/mid/not shared
+ * */
 void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned FSMState, bool isGlobalHist, bool isGlobalTable, int shared)
 {
 	history_size = historySize;
@@ -446,10 +636,11 @@ void bp::BP_init_update(unsigned btbSize, unsigned historySize, unsigned tagSize
 	global_fsm = fsm(calculateFsmSize(historySize),FSMState);
 }
 
-/**
- * hw functions
+/************************************
  * 
- **/
+ * HW functions- Interface functions
+ * 
+ ************************************/
 
 int BP_init(unsigned btbSize, unsigned historySize, unsigned tagSize, unsigned fsmState, bool isGlobalHist, bool isGlobalTable, int Shared)
 {
