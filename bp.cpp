@@ -26,7 +26,6 @@ int calculateFsmSize(unsigned historySize){
 	return int(pow(2,historySize));
 }
 
-
 /**
  * history class
  * 
@@ -43,6 +42,7 @@ public:
 	const bool* getHistory();
 	int getSize();
 	void updateHistory (bool taken);
+	void resetHistory(bool taken);
 	const int historyArrToNum();
 	friend class bp;
 };
@@ -89,12 +89,18 @@ history& history::operator=(const history& hist){
 
 void history::updateHistory (bool taken)  // update the array - shift left
 {
-
 	for(int i = history_size - 1 ; i > 0 ; i--){
 		array[i] = array[i-1];
 	}
 	if(taken) array[0] = 1;
 	else array[0] = 0;
+}
+
+void history::resetHistory(bool taken){
+	for(int i = 0 ; i < history_size ; i++){
+		array[i] = 0;
+	}
+	if(taken) array[0] = 1;
 }
 
 const int history::historyArrToNum()
@@ -204,6 +210,7 @@ public:
 	void updateHistory (bool taken);
 	const fsm& getFSM();
 	void updateFSM(int fsm_num, bool taken);
+	void resetHistory(bool taken){local_hist.resetHistory(taken);}
 	branch& operator=(const branch& to_copy);
 	friend class bp;
 };
@@ -385,7 +392,7 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 		if(isGlobalTable) main_bp.global_fsm.updateFSM(0, taken);
 		else btb_list[bhr_index].updateFSM(0, taken); 
 		if(isGlobalHist) main_bp.global_history.updateHistory(taken);
-		else btb_list[bhr_index].updateHistory(taken);
+		else btb_list[bhr_index].resetHistory(taken);
 	}
 }
 
