@@ -389,8 +389,11 @@ void bp::addNewBranch(uint32_t pc, uint32_t targetPc, bool taken)
 	}
 	else{
 		btb_list[bhr_index] = branch(pc_tag, targetPc, isGlobalHist, isGlobalTable, history_size, fsm_size, fsmState);
-		if(isGlobalTable) main_bp.global_fsm.updateFSM(0, taken);
+		if(isGlobalTable && isGlobalHist) main_bp.global_fsm.updateFSM(fsm_index, taken);
+		else if(isGlobalTable && !isGlobalHist) main_bp.global_fsm.updateFSM(0, taken);
+		else if(isGlobalHist) btb_list[bhr_index].updateFSM(fsm_index, taken); 
 		else btb_list[bhr_index].updateFSM(0, taken); 
+
 		if(isGlobalHist) main_bp.global_history.updateHistory(taken);
 		else btb_list[bhr_index].resetHistory(taken);
 	}
